@@ -64,9 +64,26 @@ dialog::backdrop{background:rgba(5,10,20,.55)}
 .lg{grid-column:1/-1;min-height:100vh;display:grid;grid-template-columns:1fr 1fr}.lg .l{background:var(--g);color:#fff;padding:60px 44px;display:flex;flex-direction:column;justify-content:center;gap:12px}.lg .r{display:flex;align-items:center;justify-content:center;padding:24px}.lg .card{width:min(420px,100%);margin:0}
 @media(max-width:820px){.lg{grid-template-columns:1fr}.lg .l{padding:28px 20px}.app{grid-template-columns:1fr}aside{position:static;height:auto;padding:10px}.logo{display:none}nav{flex-direction:row;overflow-x:auto}.two{grid-template-columns:1fr}.main{padding:0 12px 40px}.fg,.kv{grid-template-columns:1fr}}
 @media print{body>*:not(dialog){display:none!important}dialog{position:absolute;inset:0;width:100%;max-height:none;border-radius:0}.noprint{display:none!important}}
-</style></head>
+</style><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+</head>
 <body><div class="app" id="app"></div><dialog id="dlg"></dialog><div id="toast" role="status"></div>
 <script>
+// ===== STEP 1: paste your Firebase web app config here (Firebase console > Project settings > Your apps) =====
+//const //FIREBASE_CONFIG={apiKey:"PASTE_API_KEY",authDomain:"PASTE_PROJECT.firebaseapp.//com",databaseURL:"PASTE_DATABASE_URL",projectId:"PASTE_PROJECT_ID",appId:"PAST//E_APP_ID"};
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBGjaQ0vvlKZcQdn6PYx1HNGvl5mPyymw8",
+  authDomain: "pearl-vault-fa659.firebaseapp.com",
+  databaseURL: "https://pearl-vault-fa659-default-rtdb.firebaseio.com",
+  projectId: "pearl-vault-fa659",
+  storageBucket: "pearl-vault-fa659.firebasestorage.app",
+  messagingSenderId: "1018345824075",
+  appId: "1:1018345824075:web:335b4aebbcda4ba6d092ce",
+  measurementId: "G-C45Z7KZE14"
+};
+// ==========================================================================================================
 const KEY="ajo-v3",CL=["customers","packages","contribs","wds","agents","loans","users"],$=i=>document.getElementById(i);
 const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10),TODAY=iso(new Date());
 let DB=null,SYNC=false,V="dash",PID=null,WT="Pending",LT="Outstanding",F={q:"",st:"",pk:""},G={q:"",st:"",m:""},RM=TODAY.slice(0,7),W={},ST=0,EID=null;
@@ -77,13 +94,13 @@ const fd=d=>d?new Date(d+"T00:00").toLocaleDateString("en-NG",{month:"short",day
 const rel=d=>{const n=Math.round((new Date(TODAY)-new Date(d))/864e5);return n===0?"Today":n===1?"Yesterday":fd(d)};
 const toast=t=>{const e=$("toast");e.textContent=t;e.className="on";clearTimeout(toast.t);toast.t=setTimeout(()=>e.className="",2800)};
 const ls=k=>{try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}};
-let SES=null;try{SES=localStorage.getItem("ajo-ses")}catch(e){}
-const ME=()=>D.users.find(u=>u.id===SES),isR=()=>{const m=ME();return !!m&&m.role==="Runner"},by=()=>(ME()||{}).name||"";
-const del=(c,id)=>{D[c]=D[c].filter(x=>x.id!==id);loc();if(DB)DB.collection(c).doc(id).delete().catch(()=>{})};
+let SES=null,PRO=null,FB=null,SETUP=false,SU=false,SEC=null,OFF=[];
+const ME=()=>{const u=D.users.find(x=>x.id===SES)||PRO;return u&&["Runner","Agent"].includes(u.role)?u:undefined},isR=()=>{const m=ME();return !!m&&m.role==="Runner"},by=()=>(ME()||{}).name||"";
+const pth=(c,id)=>c==="users"?"users/"+id:"data/"+c+"/"+id,BQ={};
+const del=(c,id)=>{D[c]=D[c].filter(x=>x.id!==id);if(DB)DB.ref(pth(c,id)).remove().catch(()=>{})};
 const nid=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,5),ref=p=>p+Date.now().toString(36).slice(-5).toUpperCase();
-{const s=ls(KEY);if(s)for(const k in s)D[k]=s[k]}
-const loc=()=>{try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}};
-function put(c,o){const a=D[c],i=a.findIndex(x=>x.id===o.id);i<0?a.push(o):a[i]=o;BULK||loc();if(DB)DB.collection(c).doc(o.id).set(o).catch(()=>toast("Could not sync. Check your connection."))}
+const loc=()=>{};
+function put(c,o){const a=D[c],i=a.findIndex(x=>x.id===o.id);i<0?a.push(o):a[i]=o;if(!DB)return;const v=JSON.parse(JSON.stringify(o));if(BULK)BQ[pth(c,o.id)]=v;else DB.ref(pth(c,o.id)).set(v).catch(e=>toast(e&&e.code==="PERMISSION_DENIED"?"You don't have permission to do that.":"Could not save. Check your connection."))}
 const cu=i=>D.customers.find(c=>c.id===i),pk=i=>D.packages.find(p=>p.id===i),ok=x=>x.st==="Confirmed";
 const cc=c=>D.contribs.filter(x=>x.cid===c.id&&ok(x)),wd=(c,s)=>D.wds.filter(w=>w.cid===c.id&&(!s||w.st===s));
 const contributed=c=>sum(cc(c),x=>x.amt),withdrawn=c=>sum(wd(c,"Approved"),w=>w.amt),comm=c=>sum(cc(c),x=>x.fee||0),bal=c=>contributed(c)-comm(c)-withdrawn(c);
@@ -153,7 +170,7 @@ function lrc(id,pid){const l=D.loans.find(x=>x.id===id),p=l.paid.find(x=>x.id===
 function vLoan(){const A=D.loans,od=A.filter(l=>lst(l)==="Overdue"),L=A.filter(l=>LT==="All"||(LT==="Outstanding"?owed(l)>0:owed(l)<=0)).sort((a,b)=>b.date<a.date?-1:1);
  return`<div class="top2"><span class="mut">${A.length} loans issued</span><div class="row"><button onclick="expL()">Export</button><button class="p" onclick="loanF()">+ Issue Loan</button></div></div><div class="grid">${[["Outstanding",fmt(sum(A,owed)),A.filter(l=>owed(l)>0).length+" open loans"],["Total Lent",fmt(sum(A,l=>l.amt)),"Principal issued"],["Total Repaid",fmt(sum(A,l=>sum(l.paid,p=>p.amt))),"Principal and interest"],["Overdue",od.length,fmt(sum(od,owed))+" owed late"]].map(s=>`<div class="card"><span class="mut">${s[0]}</span><div class="big">${s[1]}</div><small>${s[2]}</small></div>`).join("")}</div><div class="card"><div class="tabs">${["Outstanding","Cleared","All"].map(t=>`<button class="${LT===t?"on":""}" onclick="LT='${t}';render()">${t}</button>`).join("")}</div>${tbl(["Customer","Lent","Owed","Due","Status","Action"],L.map(l=>tr([cn(l.cid,l.ref),fmt(l.amt)+" @ "+l.rate+"%",fmt(owed(l)),fd(l.due),badge(lst(l)),`<button class="s${owed(l)>0?" ok":""}" onclick="repF('${l.id}')">${owed(l)>0?"Repay":"View"}</button>`])),"No loans here. Issue one to get started.")}</div>`}
 const expL=()=>csv("loans",[["Reference","Customer","Lent","Interest %","Repaid","Owed","Issued","Due","Status"]].concat(D.loans.map(l=>[l.ref,cu(l.cid)?fname(cu(l.cid)):"",l.amt,l.rate,sum(l.paid,p=>p.amt),owed(l),l.date,l.due||"",lst(l)])));
-let IR=null,RES=null,IT="customers",BULK=false,LS=window.claude?"load":"ready",FA=0,LOCK=0,GK="";
+let IR=null,RES=null,IT="customers",BULK=false,LS="load",FA=0,LOCK=0,GK="";
 function parseCSV(t){t=t.replace(/^\uFEFF/,"");const r=[];let w=[],f="",q=false;const e=()=>{w.push(f);f="";if(w.some(x=>x.trim()))r.push(w);w=[]};
  for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c=='"'){if(t[i+1]=='"'){f+='"';i++}else q=false}else f+=c}else if(c=='"')q=true;else if(c==","){w.push(f);f=""}else if(c=="\n"||c=="\r"){if(c=="\r"&&t[i+1]=="\n")i++;e()}else f+=c}e();return r}
 const METH=["Cash","Transfer","POS","USSD"],pick=(s,l)=>l.find(x=>x.toLowerCase()===String(s).trim().toLowerCase())||"",dg=s=>String(s||"").replace(/\D/g,""),
@@ -189,7 +206,7 @@ async function doImp(){if(!isR())return toast("Only the Runner account can impor
  const sp=IMP[IR.t],ix={};IR.head.forEach((h,i)=>ix[h.toLowerCase()]=i);let ok_=0,dup=0;const errs=[];BULK=true;
  IR.rows.forEach((row,n)=>{const g=k=>{const i=ix[k.toLowerCase()];return i==null?"":String(row[i]==null?"":row[i]).trim()};
   try{put(sp.c,sp.b(g));ok_++}catch(e){if(e==="DUP")dup++;else errs.push("Row "+(n+2)+": "+(typeof e==="string"?e:e.message))}});
- BULK=false;loc();RES={t:sp.t,ok:ok_,dup,errs};IR=null;render();toast(ok_+" rows imported.")}
+ BULK=false;try{if(DB&&Object.keys(BQ).length)await DB.ref().update(BQ)}catch(e){errs.unshift("Could not save to the database ("+(e.code||e.message)+"). Nothing was imported.");ok_=0}for(const k in BQ)delete BQ[k];RES={t:sp.t,ok:ok_,dup,errs};IR=null;render();toast(ok_+" rows imported.")}
 const prev=()=>{const hd=IR.head.map(h=>h.toLowerCase()),sp=IMP[IR.t],ms=sp.r.filter(h=>!hd.includes(h.toLowerCase())),ig=IR.head.filter(h=>!sp.h.some(x=>x.toLowerCase()===h.toLowerCase()));
  return`<div class="card" style="margin-top:12px"><b>${esc(IR.name)}</b><div class="mut">${IR.rows.length} data rows found.${ig.length?" Ignored columns: "+esc(ig.join(", "))+".":""}</div>${ms.length?`<div class="note">Missing required columns: ${ms.join(", ")}. Fix the file and choose it again.</div>`:`${tbl(IR.head.slice(0,6).map(esc),IR.rows.slice(0,3).map(r=>tr(r.slice(0,6).map(esc))))}<div class="row"><button class="p" onclick="doImp()">Import ${IR.rows.length} rows</button></div>`}</div>`};
 const resC=()=>`<div class="card" style="margin-top:12px"><h2>Import finished: ${RES.t}</h2><div class="mut">${RES.ok} imported · ${RES.dup} already existed and were skipped · ${RES.errs.length} had problems</div>${RES.errs.length?`<div class="note">${RES.errs.slice(0,10).map(esc).join("<br>")}${RES.errs.length>10?"<br>…and "+(RES.errs.length-10)+" more":""}</div>`:""}</div>`;
@@ -225,44 +242,62 @@ const svAg=()=>{const n=$("f_name").value.trim();if(!n)return toast("Enter the a
 function vRep(){const m=RM,inP=d=>!m||(d||"").slice(0,7)===m,cf=D.contribs.filter(x=>ok(x)&&inP(x.date)),ap=D.wds.filter(w=>w.st==="Approved"&&inP(w.proc)),tot=sum(cf,x=>x.amt),
  S=[["Savings Collected",fmt(tot)],["Total Withdrawals",fmt(sum(ap,w=>w.amt))],["Total Liabilities",fmt(sum(D.customers,bal))+"|Customer balances owed"],["Commissions Earned",fmt(sum(cf,x=>x.fee||0))],["Loans Outstanding",fmt(sum(D.loans,owed))+"|"+D.loans.length+" loans issued"]];
  return`<div class="top2"><div><label for="rm_" style="margin:0">Period (clear for all time)</label><input id="rm_" type="month" value="${m}" onchange="RM=this.value;render()"></div><button class="p" onclick="expC()">Export Report</button></div><div class="grid">${S.map(s=>{const p=s[1].split("|");return`<div class="card"><span class="mut">${s[0]}</span><div class="big">${p[0]}</div><small>${p[1]||""}</small></div>`}).join("")}</div><div class="two"><div class="card"><h2>Contributions by Package</h2>${D.packages.map(p=>{const v=sum(cf.filter(x=>(cu(x.cid)||{}).pkg===p.id),x=>x.amt),pc=tot?Math.round(v/tot*100):0;return`<div class="top2" style="margin-top:12px"><span>${esc(p.name)}</span><b>${fmt(v)}</b></div><div class="bar"><b style="width:${pc}%"></b></div><small>${pc}% · ${D.customers.filter(c=>c.pkg===p.id).length} customers</small>`}).join("")||'<div class="empty">No packages yet.</div>'}</div><div class="card"><h2>Customer Summary</h2>${[["Total Customers",D.customers.length],["Active",D.customers.filter(c=>c.st==="Active").length],["Inactive",D.customers.filter(c=>c.st!=="Active").length],["New in period",D.customers.filter(c=>inP(c.joined)).length],["Agents",D.agents.length]].map(r=>`<div class="h"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("")}</div></div>`}
-const hx=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join(""),rnd=()=>hx(crypto.getRandomValues(new Uint8Array(16)).buffer);
-async function hp(pw,salt){const e=new TextEncoder(),k=await crypto.subtle.importKey("raw",e.encode(pw),"PBKDF2",false,["deriveBits"]);return hx(await crypto.subtle.deriveBits({name:"PBKDF2",salt:e.encode(salt),iterations:150000,hash:"SHA-256"},k,256))}
-const lg=s=>{s=String(s||"").trim().toLowerCase().replace(/\s/g,"");return/^[\d+()-]+$/.test(s)?pn(s):s},okL=l=>/^0\d{10}$/.test(l)||/^\S+@\S+\.\S+$/.test(l);
+const em_=s=>String(s||"").trim().toLowerCase(),okE=e=>/^\S+@\S+\.\S+$/.test(e),NEED=/PASTE/.test(FIREBASE_CONFIG.apiKey+FIREBASE_CONFIG.databaseURL);
 const ent=e=>{if(e.key==="Enter")doLogin()};
 function gate(){if(ME())return null;const L=(k,t)=>[k,`<div class="lg"><div class="l"><h1 style="color:#fff;font-size:28px">Digital Ajo Platform</h1><div style="opacity:.9">A secure, structured platform for ajo runners and their customers. Track contributions, manage withdrawals and grow your business.</div></div><div class="r"><div class="card">${t}</div></div></div>`];
- if(LS==="load")return L("load",'<div class="empty">Loading your records…</div>');
+ if(NEED)return L("need",'<h2>Connect Firebase</h2><p class="mut">Open <b>index.html</b> in a text editor, paste your Firebase web app config into <b>FIREBASE_CONFIG</b> at the top of the script, and upload the file again.</p>');
+ if(LS==="load")return L("load",'<div class="empty">Loading…</div>');
  if(LS==="fail")return L("fail",'<h2>Can\'t reach your records</h2><p class="mut">Check your connection, then try again.</p><div class="row"><button class="p" onclick="location.reload()">Try again</button></div>');
- if(!D.users.length)return L("setup",`<h2>Create your Runner account</h2><div class="mut">This is the first sign-in for this app. You'll use it to manage customers, imports and team logins.</div><label for="sb2">Business name</label><input id="sb2"><label for="sn2">Your full name</label><input id="sn2"><label for="su">Phone or email (your login)</label><input id="su" autocomplete="username"><label for="sp">Password (min 8 characters)</label><input id="sp" type="password" autocomplete="new-password"><label for="sp2">Confirm password</label><input id="sp2" type="password" autocomplete="new-password"><div class="row"><button class="p" onclick="doSetup()">Create account</button></div>`);
- return L("login",`<h2>Welcome back</h2><div class="mut">Sign in to your account to continue</div><label for="lu">Email or phone number</label><input id="lu" autocomplete="username" placeholder="e.g. 08012345678 or email" onkeydown="ent(event)"><label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" placeholder="Enter your password" onkeydown="ent(event)"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" style="width:auto" onchange="$('lp').type=this.checked?'text':'password'"> Show password</label><div class="row"><button class="p" style="width:100%" onclick="doLogin()">Sign in</button></div><div class="note">Your credentials are provided by your ajo runner. Contact them if you need help accessing your account.</div>`)}
-const sess=u=>{SES=u.id;try{localStorage.setItem("ajo-ses",u.id)}catch(e){}V="dash";GK="";render()};
-async function doLogin(){if(Date.now()<LOCK)return toast("Too many attempts. Wait 30 seconds and try again.");const l=lg($("lu").value),u=D.users.find(x=>x.login===l);
- if(!(u&&await hp($("lp").value,u.salt)===u.hash)){if(++FA>=5){LOCK=Date.now()+3e4;FA=0}return toast("Wrong login or password.")}FA=0;sess(u)}
-async function doSetup(){if(D.users.length)return toast("An account already exists. Sign in instead.");const b=$("sb2").value.trim(),n=$("sn2").value.trim(),l=lg($("su").value),p=$("sp").value;
- if(!b||!n||!l)return toast("Fill in every field.");if(!okL(l))return toast("Use an 11-digit phone number or an email address.");if(p.length<8)return toast("Password must be at least 8 characters.");if(p!==$("sp2").value)return toast("Passwords don't match.");
- D.settings.biz=b;const salt=rnd(),u={id:nid("u"),name:n,login:l,salt,hash:await hp(p,salt),role:"Runner"};put("users",u);if(DB)DB.doc("settings/main").set(D.settings).catch(()=>{});sess(u)}
-function out(){SES=null;try{localStorage.removeItem("ajo-ses")}catch(e){}try{cls()}catch(e){}GK="";render()}
-function usrF(){if(!isR())return;opn(`<h2>Add login</h2><div class="fg"><div><label for="un">Full name *</label><input id="un"></div><div><label for="ul">Phone or email *</label><input id="ul" autocomplete="off"></div><div><label for="ur">Role</label><select id="ur"><option>Agent</option><option>Runner</option></select></div><div><label for="up_">Temporary password *</label><input id="up_" type="text" autocomplete="off"></div></div><div class="mut" style="margin-top:8px">Share the password with them directly. They can change it after signing in.</div><div class="row"><button onclick="cls()">Cancel</button><button class="p" onclick="svU()">Create login</button></div>`)}
-async function svU(){if(!isR())return;const n=$("un").value.trim(),l=lg($("ul").value),p=$("up_").value;if(!n||!l)return toast("Enter a name and a phone or email.");if(!okL(l))return toast("Use an 11-digit phone number or an email address.");if(p.length<8)return toast("Password must be at least 8 characters.");if(D.users.some(u=>u.login===l))return toast("That login already exists.");
- const salt=rnd();put("users",{id:nid("u"),name:n,login:l,salt,hash:await hp(p,salt),role:$("ur").value});cls();render();toast("Login created.")}
-function pwF(id){const self=ME().id===id;if(!self&&!isR())return;opn(`<h2>${self?"Change":"Reset"} password</h2>${self?'<label for="pc">Current password</label><input id="pc" type="password" autocomplete="current-password">':""}<label for="pw1">New password (min 8 characters)</label><input id="pw1" type="password" autocomplete="new-password"><label for="pw2">Confirm new password</label><input id="pw2" type="password" autocomplete="new-password"><div class="row"><button onclick="cls()">Cancel</button><button class="p" onclick="svPw('${id}')">Save password</button></div>`)}
-async function svPw(id){const u=D.users.find(x=>x.id===id),self=ME().id===id;if(!u||(!self&&!isR()))return;if(self&&await hp($("pc").value,u.salt)!==u.hash)return toast("Current password is wrong.");const p=$("pw1").value;if(p.length<8)return toast("Password must be at least 8 characters.");if(p!==$("pw2").value)return toast("Passwords don't match.");
- u.salt=rnd();u.hash=await hp(p,u.salt);put("users",u);cls();toast("Password updated.")}
-function rmU(id){if(!isR()||id===ME().id||!confirm("Remove this login?"))return;del("users",id);render()}
+ if(LS==="noaccess")return L("noacc",'<h2>No access yet</h2><p class="mut">This account has not been added to the team. Ask your Runner to add your email, then sign in again.</p><div class="row"><button onclick="out()">Logout</button></div>');
+ if(SU)return L("setup",`<h2>Create your Runner account</h2><div class="mut">Use this once, for the first account of this app. Later accounts are added by the Runner.</div><label for="sb2">Business name</label><input id="sb2"><label for="sn2">Your full name</label><input id="sn2"><label for="su">Email address (your login)</label><input id="su" type="email" autocomplete="username"><label for="sp">Password (min 8 characters)</label><input id="sp" type="password" autocomplete="new-password"><label for="sp2">Confirm password</label><input id="sp2" type="password" autocomplete="new-password"><div class="row"><button class="p" onclick="doSetup()">Create account</button></div><div class="row"><a onclick="SU=false;GK='';render()">Back to sign in</a></div>`);
+ return L("login",`<h2>Welcome back</h2><div class="mut">Sign in to your account to continue</div><label for="lu">Email address</label><input id="lu" type="email" autocomplete="username" placeholder="you@example.com" onkeydown="ent(event)"><label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" placeholder="Enter your password" onkeydown="ent(event)"><label style="display:flex;gap:6px;align-items:center"><input type="checkbox" style="width:auto" onchange="$('lp').type=this.checked?'text':'password'"> Show password</label><div class="row"><button class="p" style="width:100%" onclick="doLogin()">Sign in</button></div><div class="row" style="justify-content:space-between"><a onclick="forgot()">Forgot password?</a><a onclick="SU=true;GK='';render()">First time? Create the Runner account</a></div><div class="note">Your login is provided by your ajo runner. Contact them if you need help accessing your account.</div>`)}
+async function doLogin(){if(Date.now()<LOCK)return toast("Too many attempts. Wait 30 seconds and try again.");
+ try{await FB.au.signInWithEmailAndPassword(em_($("lu").value),$("lp").value);FA=0}catch(x){if(++FA>=5){LOCK=Date.now()+3e4;FA=0}toast(x.code==="auth/too-many-requests"?"Too many attempts. Try again later.":"Wrong email or password.")}}
+async function forgot(){const e=em_($("lu").value);if(!okE(e))return toast("Type your email address first.");try{await FB.au.sendPasswordResetEmail(e)}catch(x){}toast("If that email has an account, a reset link is on its way.")}
+async function doSetup(){const b=$("sb2").value.trim(),n=$("sn2").value.trim(),e=em_($("su").value),p=$("sp").value;
+ if(!b||!n||!e)return toast("Fill in every field.");if(!okE(e))return toast("Enter a valid email address.");if(p.length<8)return toast("Password must be at least 8 characters.");if(p!==$("sp2").value)return toast("Passwords don't match.");
+ SETUP=true;let u;try{u=(await FB.au.createUserWithEmailAndPassword(e,p)).user}catch(x){SETUP=false;return toast(x.code==="auth/email-already-in-use"?"That email already has an account. Sign in instead.":x.code==="auth/weak-password"?"Choose a stronger password.":"Could not create the account.")}
+ try{await FB.db.ref("users/"+u.uid).set({id:u.uid,name:n,login:e,role:"Runner"});await FB.db.ref("settings").set({biz:b})}
+ catch(x){try{await u.delete()}catch(_){}SETUP=false;SU=false;GK="";return toast("This app already has a Runner. Ask them to add your email.")}
+ SETUP=false;SU=false;attach(u)}
+async function attach(u){SES=u.uid;LS="load";GK="";render();
+ try{const pr=(await FB.db.ref("users/"+u.uid).once("value")).val();
+  if(!pr||!["Runner","Agent"].includes(pr.role)){LS="noaccess";GK="";render();return}
+  PRO={...pr,id:u.uid};DB=FB.db;SYNC=true;LS="ready";V="dash";GK="";
+  const sub=(path,fn)=>{const r=DB.ref(path),h=r.on("value",sn=>{fn(sn.val());render()},e=>{if(e&&e.code==="PERMISSION_DENIED"){toast("Your access was removed.");out()}});OFF.push(()=>r.off("value",h))};
+  sub("users",v=>{D.users=Object.entries(v||{}).map(([id,x])=>({...x,id}))});
+  CL.filter(c=>c!=="users").forEach(c=>sub("data/"+c,v=>{D[c]=Object.values(v||{});if(c==="loans")D.loans.forEach(l=>l.paid=l.paid||[])}));
+  sub("settings",v=>{if(v)D.settings={...D.settings,...v}});render()}
+ catch(x){LS="fail";GK="";render()}}
+function out(){try{cls()}catch(e){}if(FB)FB.au.signOut()}
+function usrF(){if(!isR())return;opn(`<h2>Add login</h2><div class="fg"><div><label for="un">Full name *</label><input id="un"></div><div><label for="ul">Email address *</label><input id="ul" type="email" autocomplete="off"></div><div><label for="ur">Role</label><select id="ur"><option>Agent</option><option>Runner</option></select></div><div><label for="up_">Temporary password *</label><input id="up_" type="text" autocomplete="off"></div></div><div class="mut" style="margin-top:8px">Share the password with them directly. They can change it after signing in.</div><div class="row"><button onclick="cls()">Cancel</button><button class="p" onclick="svU()">Create login</button></div>`)}
+async function svU(){if(!isR())return;const n=$("un").value.trim(),e=em_($("ul").value),p=$("up_").value,role=$("ur").value;if(!n||!okE(e))return toast("Enter a name and a valid email address.");if(p.length<8)return toast("Password must be at least 8 characters.");
+ const old=D.users.find(u=>u.login===e);if(old&&old.role!=="Disabled")return toast("That login already exists.");
+ if(!SEC)SEC=firebase.initializeApp(FIREBASE_CONFIG,"sec");let uid;
+ try{uid=(await SEC.auth().createUserWithEmailAndPassword(e,p)).user.uid;await SEC.auth().signOut()}
+ catch(x){if(x.code==="auth/email-already-in-use"&&old){put("users",{...old,name:n,role});try{await FB.au.sendPasswordResetEmail(e)}catch(_){}cls();render();return toast("Access restored. A password reset link was emailed to them.")}
+  return toast(x.code==="auth/email-already-in-use"?"That email already has an account outside this app.":x.code==="auth/weak-password"?"Password is too weak.":"Could not create the login.")}
+ put("users",{id:uid,name:n,login:e,role});cls();render();toast("Login created.")}
+function pwF(id){if(ME().id!==id)return;opn(`<h2>Change password</h2><label for="pc">Current password</label><input id="pc" type="password" autocomplete="current-password"><label for="pw1">New password (min 8 characters)</label><input id="pw1" type="password" autocomplete="new-password"><label for="pw2">Confirm new password</label><input id="pw2" type="password" autocomplete="new-password"><div class="row"><button onclick="cls()">Cancel</button><button class="p" onclick="svPw()">Save password</button></div>`)}
+async function svPw(){const u=FB.au.currentUser,p=$("pw1").value;if(p.length<8)return toast("Password must be at least 8 characters.");if(p!==$("pw2").value)return toast("Passwords don't match.");
+ try{await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email,$("pc").value))}catch(x){return toast("Current password is wrong.")}
+ try{await u.updatePassword(p);cls();toast("Password updated.")}catch(x){toast("Could not update the password.")}}
+async function rsU(id){if(!isR())return;const u=D.users.find(x=>x.id===id);if(!u)return;try{await FB.au.sendPasswordResetEmail(u.login);toast("Reset link sent to "+u.login+".")}catch(x){toast("Could not send the reset link.")}}
+function rmU(id){const u=D.users.find(x=>x.id===id);if(!isR()||!u||id===ME().id||!confirm("Remove "+u.name+"'s access?"))return;put("users",{...u,role:"Disabled"});render()}
+function rsT(id){const u=D.users.find(x=>x.id===id);if(!isR()||!u)return;put("users",{...u,role:"Agent"});render();toast("Access restored as Agent.")}
 function vSet(){const m=ME();if(m.role!=="Runner")return'<div class="card empty">Only the Runner account can change settings.</div>';
- return`<div class="card" style="max-width:640px"><h2>Settings</h2><div class="mut">${SYNC?"Shared: everyone with edit access to this page sees the same records.":"This device only. Open the page signed in to claude.ai to share records between collectors."}</div><label for="sb">Business name</label><input id="sb" value="${esc(D.settings.biz)}"><div class="row"><button class="p" onclick="svSet()">Save settings</button></div></div><div class="card" style="max-width:640px"><div class="top2"><h2>Team logins</h2><button class="p" onclick="usrF()">+ Add login</button></div><div class="mut">Runners can do everything. Agents can record collections but can't import data or change settings.</div>${tbl(["Name","Login","Role","Action"],D.users.map(u=>tr([esc(u.name),esc(u.login),u.role,`<button class="s" onclick="pwF('${u.id}')">Reset password</button>${u.id===m.id?"":` <button class="s bad" onclick="rmU('${u.id}')">Remove</button>`}`])))}</div>`}
-function svSet(){if(!isR())return;D.settings.biz=$("sb").value.trim()||"My Ajo Business";loc();if(DB)DB.doc("settings/main").set(D.settings).catch(()=>{});render();toast("Settings saved.")}
+ return`<div class="card" style="max-width:680px"><h2>Settings</h2><div class="mut">Records are stored in your Firebase database and shared with your team.</div><label for="sb">Business name</label><input id="sb" value="${esc(D.settings.biz)}"><div class="row"><button class="p" onclick="svSet()">Save settings</button></div></div><div class="card" style="max-width:680px"><div class="top2"><h2>Team logins</h2><button class="p" onclick="usrF()">+ Add login</button></div><div class="mut">Runners can do everything. Agents can record collections but can't import data or change settings.</div>${tbl(["Name","Email","Role","Action"],D.users.map(u=>tr([esc(u.name),esc(u.login),u.role,u.id===m.id?`<button class="s" onclick="pwF('${u.id}')">Change password</button>`:u.role==="Disabled"?`<button class="s" onclick="rsT('${u.id}')">Restore</button>`:`<button class="s" onclick="rsU('${u.id}')">Send reset link</button> <button class="s bad" onclick="rmU('${u.id}')">Remove</button>`])))}</div>`}
+async function svSet(){if(!isR())return;const b=$("sb").value.trim()||"My Ajo Business";try{await DB.ref("settings").set({biz:b});toast("Settings saved.")}catch(e){toast("Could not save settings.")}}
 const VW={dash:vDash,cust:vCust,prof:vProf,pkg:vPkg,con:vCon,wd:vWd,loan:vLoan,ag:vAg,rep:vRep,imp:vImp,set:vSet};
 function render(){const gt=gate();if(gt){if(GK!==gt[0]){$("app").innerHTML=gt[1];GK=gt[0]}return}GK="";
  const m=ME(),R=m.role==="Runner",N=[["dash","Dashboard"],["cust","Customers"],["pkg","Savings Packages"],["con","Contributions"],["wd","Withdrawals"],["loan","Loans"],["ag","Agents"],["rep","Reports"],["imp","Import Data"],["set","Settings"]].filter(n=>R||!["imp","set"].includes(n[0])),
  T={dash:"Dashboard",cust:"Customers",prof:"Customer Profile",pkg:"Savings Packages",con:"Contributions",wd:"Withdrawals",loan:"Loans",ag:"Agents",rep:"Reports",imp:"Import Data",set:"Settings"},on=V==="prof"?"cust":V,pn=D.wds.filter(w=>w.st==="Pending").length;
  if(!R&&["imp","set"].includes(V))V="dash";
- $("app").innerHTML=`<aside><div class="logo">${av(D.settings.biz)}<div><b>${esc(D.settings.biz)}</b><small>Ajo Runner</small></div></div><nav>${N.map(n=>`<button class="${n[0]===on?"on":""}" onclick="go('${n[0]}')">${n[1]}${n[0]==="wd"&&pn?` (${pn})`:""}</button>`).join("")}</nav><div class="lo"><div>${esc(m.name)}<small>${m.role}</small></div><button onclick="pwF('${m.id}')">Change password</button><button onclick="out()">Logout</button></div></aside><section class="main"><header><h1>${T[V]}</h1><div class="cn">${av(m.name)}<div>${esc(m.name)}<small>${SYNC?"Shared records":"This device only"}</small></div></div></header>${VW[V]()}</section>`}
-render();
-setTimeout(()=>{if(LS==="load"){LS="fail";render()}},12000);
-(async()=>{try{const db=window.claude&&await claude.use("db");if(!db){LS="ready";render();return}DB=db;SYNC=true;const seeded={};
- CL.forEach(c=>db.collection(c).onSnapshot(s=>{
-  if(c==="users"&&!s.metadata.fromCache)LS="ready";
-  if(s.empty&&!s.metadata.fromCache&&!seeded[c]&&D[c].length){seeded[c]=1;D[c].forEach(o=>db.collection(c).doc(o.id).set(o));render();return}
-  if(!s.empty||!s.metadata.fromCache){D[c]=s.docs.map(d=>d.data());loc()}render()},()=>{if(c==="users"){LS="fail";render()}}));
- db.doc("settings/main").onSnapshot(s=>{if(s.exists){D.settings=s.data();loc();render()}},()=>{})}catch(e){LS="ready";render()}})();
+ $("app").innerHTML=`<aside><div class="logo">${av(D.settings.biz)}<div><b>${esc(D.settings.biz)}</b><small>Ajo Runner</small></div></div><nav>${N.map(n=>`<button class="${n[0]===on?"on":""}" onclick="go('${n[0]}')">${n[1]}${n[0]==="wd"&&pn?` (${pn})`:""}</button>`).join("")}</nav><div class="lo"><div>${esc(m.name)}<small>${m.role}</small></div><button onclick="pwF('${m.id}')">Change password</button><button onclick="out()">Logout</button></div></aside><section class="main"><header><h1>${T[V]}</h1><div class="cn">${av(m.name)}<div>${esc(m.name)}<small>${SYNC?"Shared records":"Offline"}</small></div></div></header>${VW[V]()}</section>`}
+function boot(){if(NEED){render();return}
+ try{firebase.initializeApp(FIREBASE_CONFIG)}catch(e){LS="fail";render();return}
+ FB={au:firebase.auth(),db:firebase.database()};
+ FB.au.onAuthStateChanged(u=>{if(!u){OFF.forEach(f=>f());OFF=[];DB=null;SES=null;PRO=null;SYNC=false;CL.forEach(c=>D[c]=[]);D.settings={biz:"My Ajo Business"};LS="out";GK="";render();return}if(!SETUP)attach(u)});
+ setTimeout(()=>{if(LS==="load"&&!SES){LS="out";GK="";render()}},8000)}
+render();boot();
 </script></body></html>
