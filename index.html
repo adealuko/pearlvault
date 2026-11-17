@@ -64,25 +64,23 @@ dialog::backdrop{background:rgba(5,10,20,.55)}
 .lg{grid-column:1/-1;min-height:100vh;display:grid;grid-template-columns:1fr 1fr}.lg .l{background:var(--g);color:#fff;padding:60px 44px;display:flex;flex-direction:column;justify-content:center;gap:12px}.lg .r{display:flex;align-items:center;justify-content:center;padding:24px}.lg .card{width:min(420px,100%);margin:0}
 @media(max-width:820px){.lg{grid-template-columns:1fr}.lg .l{padding:28px 20px}.app{grid-template-columns:1fr}aside{position:static;height:auto;padding:10px}.logo{display:none}nav{flex-direction:row;overflow-x:auto}.two{grid-template-columns:1fr}.main{padding:0 12px 40px}.fg,.kv{grid-template-columns:1fr}}
 @media print{body>*:not(dialog){display:none!important}dialog{position:absolute;inset:0;width:100%;max-height:none;border-radius:0}.noprint{display:none!important}}
-</style><script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+</style><script>
+window.addEventListener("error",function(e){var t=e.target,m;if(t&&t!==window){if(t.tagName!=="SCRIPT"||window.__sdkMsg)return;window.__sdkMsg=1;m="Could not load "+String(t.src).split("/").pop()+". Check your internet connection or turn off your ad blocker, then reload."}else m=(e.message||"Script error")+(e.lineno?" (line "+e.lineno+")":"");
+var d=document.createElement("div");d.setAttribute("role","alert");d.style.cssText="font:15px system-ui,sans-serif;padding:20px;max-width:640px;margin:24px auto;border:1px solid #d14343;border-radius:12px;color:#a42d2d;background:#fde0e0";d.textContent="Something went wrong: "+m;if(document.body)document.body.prepend(d);else document.addEventListener("DOMContentLoaded",function(){document.body.prepend(d)})},true);
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body><div class="app" id="app"></div><dialog id="dlg"></dialog><div id="toast" role="status"></div>
 <script>
-// ===== STEP 1: paste your Firebase web app config here (Firebase console > Project settings > Your apps) =====
-//apiKey: "AIzaSyBGjaQ0vvlKZcQdn6PYx1HNGvl5mPyymw8",
-const firebaseConfig = {
-  
-  authDomain: "pearl-vault-fa659.firebaseapp.com",
-  databaseURL: "https://pearl-vault-fa659-default-rtdb.firebaseio.com",
-  projectId: "pearl-vault-fa659",
-  storageBucket: "pearl-vault-fa659.firebasestorage.app",
-  messagingSenderId: "1018345824075",
-  appId: "1:1018345824075:web:335b4aebbcda4ba6d092ce",
-  measurementId: "G-C45Z7KZE14"
-};
-// ==========================================================================================================
+// ===== STEP 1: replace ONLY the text inside the quotes with your Firebase web app config values =====
+// (Firebase console > Project settings > Your apps > Web app). Do not paste the import lines.
+window.AJO_FIREBASE={apiKey:"AIzaSyBGjaQ0vvlKZcQdn6PYx1HNGvl5mPyymw8",authDomain:"pearl-vault-fa659.firebaseapp.com",databaseURL:"https://pearl-vault-fa659-default-rtdb.firebaseio.com",projectId:"pearl-vault-fa659",appId:"1:1018345824075:web:335b4aebbcda4ba6d092ce"};
+// ==================================================================================================
+</script>
+<script>
+const FIREBASE_CONFIG=window.AJO_FIREBASE||{apiKey:"PASTE",databaseURL:"PASTE"};
 const KEY="ajo-v3",CL=["customers","packages","contribs","wds","agents","loans","users"],$=i=>document.getElementById(i);
 const iso=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10),TODAY=iso(new Date());
 let DB=null,SYNC=false,V="dash",PID=null,WT="Pending",LT="Outstanding",F={q:"",st:"",pk:""},G={q:"",st:"",m:""},RM=TODAY.slice(0,7),W={},ST=0,EID=null;
@@ -241,10 +239,11 @@ const svAg=()=>{const n=$("f_name").value.trim();if(!n)return toast("Enter the a
 function vRep(){const m=RM,inP=d=>!m||(d||"").slice(0,7)===m,cf=D.contribs.filter(x=>ok(x)&&inP(x.date)),ap=D.wds.filter(w=>w.st==="Approved"&&inP(w.proc)),tot=sum(cf,x=>x.amt),
  S=[["Savings Collected",fmt(tot)],["Total Withdrawals",fmt(sum(ap,w=>w.amt))],["Total Liabilities",fmt(sum(D.customers,bal))+"|Customer balances owed"],["Commissions Earned",fmt(sum(cf,x=>x.fee||0))],["Loans Outstanding",fmt(sum(D.loans,owed))+"|"+D.loans.length+" loans issued"]];
  return`<div class="top2"><div><label for="rm_" style="margin:0">Period (clear for all time)</label><input id="rm_" type="month" value="${m}" onchange="RM=this.value;render()"></div><button class="p" onclick="expC()">Export Report</button></div><div class="grid">${S.map(s=>{const p=s[1].split("|");return`<div class="card"><span class="mut">${s[0]}</span><div class="big">${p[0]}</div><small>${p[1]||""}</small></div>`}).join("")}</div><div class="two"><div class="card"><h2>Contributions by Package</h2>${D.packages.map(p=>{const v=sum(cf.filter(x=>(cu(x.cid)||{}).pkg===p.id),x=>x.amt),pc=tot?Math.round(v/tot*100):0;return`<div class="top2" style="margin-top:12px"><span>${esc(p.name)}</span><b>${fmt(v)}</b></div><div class="bar"><b style="width:${pc}%"></b></div><small>${pc}% · ${D.customers.filter(c=>c.pkg===p.id).length} customers</small>`}).join("")||'<div class="empty">No packages yet.</div>'}</div><div class="card"><h2>Customer Summary</h2>${[["Total Customers",D.customers.length],["Active",D.customers.filter(c=>c.st==="Active").length],["Inactive",D.customers.filter(c=>c.st!=="Active").length],["New in period",D.customers.filter(c=>inP(c.joined)).length],["Agents",D.agents.length]].map(r=>`<div class="h"><span>${r[0]}</span><b>${r[1]}</b></div>`).join("")}</div></div>`}
-const em_=s=>String(s||"").trim().toLowerCase(),okE=e=>/^\S+@\S+\.\S+$/.test(e),NEED=/PASTE/.test(FIREBASE_CONFIG.apiKey+FIREBASE_CONFIG.databaseURL);
+const em_=s=>String(s||"").trim().toLowerCase(),okE=e=>/^\S+@\S+\.\S+$/.test(e),NEED=!FIREBASE_CONFIG.apiKey||!FIREBASE_CONFIG.databaseURL||/PASTE/.test(FIREBASE_CONFIG.apiKey+FIREBASE_CONFIG.databaseURL);
 const ent=e=>{if(e.key==="Enter")doLogin()};
 function gate(){if(ME())return null;const L=(k,t)=>[k,`<div class="lg"><div class="l"><h1 style="color:#fff;font-size:28px">Digital Ajo Platform</h1><div style="opacity:.9">A secure, structured platform for ajo runners and their customers. Track contributions, manage withdrawals and grow your business.</div></div><div class="r"><div class="card">${t}</div></div></div>`];
- if(NEED)return L("need",'<h2>Connect Firebase</h2><p class="mut">Open <b>index.html</b> in a text editor, paste your Firebase web app config into <b>FIREBASE_CONFIG</b> at the top of the script, and upload the file again.</p>');
+ if(NEED)return L("need",'<h2>Connect Firebase</h2><p class="mut">Open <b>index.html</b> in a text editor and replace the PASTE_ values in <b>AJO_FIREBASE</b> near the top with your Firebase web app config. Then upload the file again.</p>'+(window.AJO_FIREBASE?"":'<p class="mut">The config block could not be read. Make sure only the values inside the quotes were changed.</p>'));
+ if(LS==="nosdk")return L("nosdk",'<h2>Firebase did not load</h2><p class="mut">Check your internet connection or turn off your ad blocker, then reload the page.</p><div class="row"><button class="p" onclick="location.reload()">Reload</button></div>');
  if(LS==="load")return L("load",'<div class="empty">Loading…</div>');
  if(LS==="fail")return L("fail",'<h2>Can\'t reach your records</h2><p class="mut">Check your connection, then try again.</p><div class="row"><button class="p" onclick="location.reload()">Try again</button></div>');
  if(LS==="noaccess")return L("noacc",'<h2>No access yet</h2><p class="mut">This account has not been added to the team. Ask your Runner to add your email, then sign in again.</p><div class="row"><button onclick="out()">Logout</button></div>');
@@ -293,7 +292,7 @@ function render(){const gt=gate();if(gt){if(GK!==gt[0]){$("app").innerHTML=gt[1]
  T={dash:"Dashboard",cust:"Customers",prof:"Customer Profile",pkg:"Savings Packages",con:"Contributions",wd:"Withdrawals",loan:"Loans",ag:"Agents",rep:"Reports",imp:"Import Data",set:"Settings"},on=V==="prof"?"cust":V,pn=D.wds.filter(w=>w.st==="Pending").length;
  if(!R&&["imp","set"].includes(V))V="dash";
  $("app").innerHTML=`<aside><div class="logo">${av(D.settings.biz)}<div><b>${esc(D.settings.biz)}</b><small>Ajo Runner</small></div></div><nav>${N.map(n=>`<button class="${n[0]===on?"on":""}" onclick="go('${n[0]}')">${n[1]}${n[0]==="wd"&&pn?` (${pn})`:""}</button>`).join("")}</nav><div class="lo"><div>${esc(m.name)}<small>${m.role}</small></div><button onclick="pwF('${m.id}')">Change password</button><button onclick="out()">Logout</button></div></aside><section class="main"><header><h1>${T[V]}</h1><div class="cn">${av(m.name)}<div>${esc(m.name)}<small>${SYNC?"Shared records":"Offline"}</small></div></div></header>${VW[V]()}</section>`}
-function boot(){if(NEED){render();return}
+function boot(){if(NEED){render();return}if(typeof firebase==="undefined"){LS="nosdk";GK="";render();return}
  try{firebase.initializeApp(FIREBASE_CONFIG)}catch(e){LS="fail";render();return}
  FB={au:firebase.auth(),db:firebase.database()};
  FB.au.onAuthStateChanged(u=>{if(!u){OFF.forEach(f=>f());OFF=[];DB=null;SES=null;PRO=null;SYNC=false;CL.forEach(c=>D[c]=[]);D.settings={biz:"My Ajo Business"};LS="out";GK="";render();return}if(!SETUP)attach(u)});
